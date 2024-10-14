@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Mô Hình Trái Đất và Từ Trường</title>
+    <style>
+       /* Thêm CSS cho thanh kéo */
+       #sliderContainer {
+                position: absolute;
+                right: 10px;
+                bottom: 10%;
+                width: 50px;
+                height: 300px;
+                text-align: center;
+            }
+    </style>
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
+    <script src="https://cdn.babylonjs.com/loaders/babylonjs.loaders.min.js"></script>
+    <script src="https://cdn.babylonjs.com/gui/babylon.gui.min.js"></script>
+</head>
+<body>
+    <canvas id="renderCanvas" style="width: 100%; height: 100vh;"></canvas>
+    <div id="tooltip" style="position: absolute; top: 10px; left: 10px; background-color: rgba(255, 255, 255, 0.8); padding: 10px; border-radius: 5px; display: none;">
+        <h3>Mô Phỏng Từ Trường Trái Đất:</h3>
+        <ul>
+            <li>Trục Quay : trục màu xanh dương </li>
+            <li>Trục Từ : Trục màu đỏ </li>
+            <li>Đường Sức Từ : Vòng tròn màu xanh </li>
+            <li>Góc Giữa Trục Quay và Trục Từ của Trái Đất : thanh màu xanh lá </li>
+        </ul>
+    </div>
+    <script>
+        // Khởi tạo canvas và engine
+        const canvas = document.getElementById("renderCanvas");
+        const engine = new BABYLON.Engine(canvas, true);
+
+        // Hàm tạo cực từ nam châm
+                function createMagneticPole(scene) {
+            const northPole = BABYLON.MeshBuilder.CreateBox("northPole", {height: 2, width: 0.5, depth: 0.5}, scene);
+            const northMaterial = new BABYLON.StandardMaterial("northMaterial", scene);
+            northMaterial.diffuseColor = new BABYLON.Color3(0, 0, 1); // Màu xanh nước biển
+            northPole.material = northMaterial;
+            northPole.position.y = 0.5;
+
+            const southPole = BABYLON.MeshBuilder.CreateBox("southPole", {height: 2, width: 0.5, depth: 0.5}, scene);
+            const southMaterial = new BABYLON.StandardMaterial("southMaterial", scene);
+            southMaterial.diffuseColor = new BABYLON.Color3(1, 0, 0); // Màu đỏ
+            southPole.material = southMaterial;
+            southPole.position.y = -0.5;
+
+            const pole = BABYLON.Mesh.MergeMeshes([northPole, southPole], true, true, undefined, false, true);
+
+            return pole;
+}
+        // Hàm tạo đường sức từ và mũi tên bao quanh cả hình cầu Trái Đất
+function createMagneticFieldLinesWithArrows(scene, radius, initialPosition) {
+    const lines = [];
+    const numLines = 20; // Tăng số đường sức từ để bao phủ toàn bộ hình cầu
+    const arrows = [];
+
+    for (let i = 0; i < numLines; i++) {
+        const points = [];
+        const theta = Math.PI * 2 * i / numLines; // Tăng góc theta để bao phủ toàn bộ hình cầu
+
+        for (let t = 0; t <= Math.PI; t += 0.1) { // Từ góc 0 đến góc 180 độ
+            const x = radius * 1.5 * Math.sin(theta) * Math.cos(t);
+            const y = radius * 1.5 * Math.cos(theta);
+            const z = radius * 1.5 * Math.sin(theta) * Math.sin(t);
+            points.push(new BABYLON.Vector3(x, y, z));
+        }
+
+        // Tạo đường sức từ
+        const line = BABYLON.MeshBuilder.CreateLines("fieldLine", {points: points}, scene);
+        line.color = new BABYLON.Color3(0.5, 0.5, 1); // Màu xanh nhạt
+        lines.push(line);
+
+        // Thêm mũi tên vào đường sức từ
+        const midPointIndex = Math.floor(points.length / 2); // Chọn điểm giữa của đường sức từ
+        const midPoint = points[midPointIndex];
+        const nextPoint = points[midPointIndex + 1];
+
+        const direction = nextPoint.subtract(midPoint).normalize(); // Hướng của mũi tên
+
+        // Tạo hình nón làm mũi tên
+        const arrow = BABYLON.MeshBuilder.CreateCylinder("arrow", {
+            diameterTop: 0, 
+            diameterBottom: 0.2, 
+            height: 0.5, 
+            tessellation: 4
+        }, scene);
+
+        // Đặt vị trí mũi tên
+        arrow.position = midPoint;
+        
+        // Xoay mũi tên theo hướng của đường sức từ
+        arrow.lookAt(nextPoint);
+        arrow.material = new BABYLON.StandardMaterial("arrowMaterial", scene);
+        arrow.material.diffuseColor = new BABYLON.Color3(1, 0, 0); // Màu đỏ cho mũi tên
+        arrows.push(arrow);
+    }
+
+    return { lines: lines, arrows: arrows };
+}
+
+        // Hàm tạo scene
+        const createScene = function () {
+            const scene = new BABYLON.Scene(engine);
+
+            // Tạo camera
+            const camera = new BABYLON.ArcRotateCamera("camera", -Math.PI / 2, Math.PI / 2.5, 15, new BABYLON.Vector3(0, 0, 0), scene);
+            camera.attachControl(canvas, true);
+
+            // Tạo ánh sáng
+            const light = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(1, 1, 0), scene);
+
+            // Tạo Trái Đất
+            const earth = BABYLON.MeshBuilder.CreateSphere("earth", {diameter: 8, segments: 32}, scene);
+            const earthMaterial = new BABYLON.StandardMaterial("earthMaterial", scene);
+            earthMaterial.diffuseTexture = new BABYLON.Texture("https://www.babylonjs-playground.com/textures/earth.jpg", scene);
+            earth.material = earthMaterial;
+
+            // Tạo cực từ nam châm
+            const magneticPole = createMagneticPole(scene);
+            magneticPole.parent = earth;
+            magneticPole.scaling.scaleInPlace(0.5);
+
+            // Tạo đường sức từ với mũi tên
+            const magneticField = createMagneticFieldLinesWithArrows(scene, 4);
+            magneticField.lines.forEach(line => line.parent = earth); // Gán đường sức từ vào Trái Đất
+            magneticField.arrows.forEach(arrow => arrow.parent = earth); // Gán mũi tên vào Trái Đất
+
+
+             // Thiết lập độ trong suốt ban đầu
+             earthMaterial.alpha = 1; // Hình cầu Trái Đất không bị mờ
+            magneticPole.material.alpha = 1; // Cục từ không bị mờ
+
+            let earthSelected = false; // Biến để theo dõi trạng thái
+            let poleSelected = false; // Biến để theo dõi trạng thái
+
+            // Xử lý sự kiện click để bật/tắt từ trường và làm mờ
+            scene.onPointerObservable.add((pointerInfo) => {
+                if (pointerInfo.type === BABYLON.PointerEventTypes.POINTERTAP) {
+                    const pickResult = scene.pick(scene.pointerX, scene.pointerY);
+
+                    if (pickResult.hit) {
+                        const pickedMesh = pickResult.pickedMesh;
+
+                        // Nếu click vào hình cầu Trái Đất
+                        if (pickedMesh === earth) {
+                            earthSelected = !earthSelected; // Chuyển trạng thái
+                            poleSelected = false; // Đặt lại trạng thái của cục từ
+
+                            if (earthSelected) {
+                                earthMaterial.alpha = 0.5; // Làm mờ Trái Đất
+                                magneticPole.material.alpha = 1; // Hiện rõ cục từ
+                            } else {
+                                earthMaterial.alpha = 1; // Hiện rõ Trái Đất
+                                magneticPole.material.alpha = 1; // Hiện rõ cục từ
+                            }
+                        } 
+                        // Nếu click vào cục từ
+                        else if (pickedMesh === magneticPole) {
+                            poleSelected = !poleSelected; // Chuyển trạng thái
+                            earthSelected = false; // Đặt lại trạng thái của Trái Đất
+
+                            if (poleSelected) {
+                                earthMaterial.alpha = 1; // Hiện rõ Trái Đất
+                                magneticPole.material.alpha = 0.5; // Làm mờ cục từ
+                            } else {
+                                earthMaterial.alpha = 1; // Hiện rõ Trái Đất
+                                magneticPole.material.alpha = 1; // Hiện rõ cục từ
+                            }
+                        }
+                    }
+                }
+            });
+
+    // Tạo trục từ và trục xoay
+    const createAxes = function(scene) {
+        // Trục từ (màu đỏ)
+        const magneticAxisPoints = [
+            new BABYLON.Vector3(0.1, 0, -8),
+            new BABYLON.Vector3(0.1, 0, 8)
+        ];
+        const magneticAxis = BABYLON.MeshBuilder.CreateLines("magneticAxis", {points: magneticAxisPoints}, scene);
+        magneticAxis.color = new BABYLON.Color3(1, 0, 0);  // Màu đỏ
+
+        // Trục xoay (màu xanh nước biển)
+        const rotationAxisPoints = [
+            new BABYLON.Vector3(-0.1, 0, -8),
+            new BABYLON.Vector3(-0.1, 0, 8)
+        ];
+        const rotationAxis = BABYLON.MeshBuilder.CreateLines("rotationAxis", {points: rotationAxisPoints}, scene);
+        rotationAxis.color = new BABYLON.Color3(0, 0, 1);  // Màu xanh nước biển
+
+        return {magnetic: magneticAxis, rotation: rotationAxis};
+    };
+    // Trong hàm createScene, sau khi tạo Trái Đất và cục từ:
+    const axes = createAxes(scene);
+    axes.magnetic.parent = earth;
+    axes.rotation.parent = earth;
+
+    // Xoay trục từ
+    axes.magnetic.rotation.x = Math.PI / 2;
+    axes.magnetic.rotation.z = BABYLON.Tools.ToRadians(11.3);  // Góc nghiêng 11.3 độ
+
+    // Xoay trục quay
+    axes.rotation.rotation.x = Math.PI / 2;
+
+    
+
+
+        // Tạo điểm nối giữa trục từ và trục xoay
+    const createIntersectionPoint = function(scene) {
+    const sphere = BABYLON.MeshBuilder.CreateSphere("intersectionPoint", {diameter: 0.2}, scene);
+    const material = new BABYLON.StandardMaterial("intersectionMaterial", scene);
+    material.diffuseColor = new BABYLON.Color3(1, 1, 0); // Màu vàng
+    material.emissiveColor = new BABYLON.Color3(1, 1, 0); // Phát sáng
+    sphere.material = material;
+    return sphere;
+};
+// Tạo đường nối giữa trục xoay và trục từ
+const createConnectionLine = function(scene) {
+    // Điểm trên trục xoay (Bắc cực địa lý)
+    const geographicNorth = new BABYLON.Vector3(0, 4, 0);
+    
+    // Điểm trên trục từ (Bắc cực từ)
+    const magneticNorth = new BABYLON.Vector3(
+        0,
+        4 * Math.cos(BABYLON.Tools.ToRadians(11.3)),
+        4 * Math.sin(BABYLON.Tools.ToRadians(11.3))
+    );
+
+
+    
+    // Tạo đường nối
+    const points = [geographicNorth, magneticNorth];
+    const line = BABYLON.MeshBuilder.CreateLines("connectionLine", {points: points}, scene);
+    line.color = new BABYLON.Color3(0, 1, 0);  // Màu xanh lá cây
+
+    
+
+    return line;
+};
+
+
+
+// Trong hàm createScene, sau khi tạo Trái Đất, trục từ và trục xoay:
+const connectionLine = createConnectionLine(scene);
+connectionLine.parent = earth;
+
+            
+        // Tạo hoạt ảnh xoay
+    scene.registerBeforeRender(function () {
+    earth.rotation.y += 0.002;
+            });
+
+        return scene;
+        };
+
+        // Tạo và chạy scene
+        const scene = createScene();
+        engine.runRenderLoop(function () {
+            scene.render();
+        });
+
+        // Xử lý sự kiện thay đổi kích thước cửa sổ
+        window.addEventListener("resize", function () {
+            engine.resize();
+        });
+
+        
+
+        // Xử lý sự kiện thay đổi kích thước cửa sổ
+        window.addEventListener("resize", function () {
+            engine.resize();
+        });
+
+
+        // Khởi tạo biến và mảng cho chú thích
+        let annotationsVisible = false;
+        const annotations = [];
+
+        // Toggle tooltip visibility on mouse click
+        const tooltip = document.getElementById("tooltip");
+        canvas.addEventListener("click", () => {
+            tooltip.style.display = tooltip.style.display === "none" ? "block" : "none";
+        });
+        
+        // **Thêm thanh kéo dọc để điều chỉnh thu/phóng**
+        const slider = new BABYLON.GUI.Slider();
+        slider.minimum = 5;
+        slider.maximum = 20;
+        slider.value = 10;
+        slider.height = "300px";
+        slider.width = "30px";
+        slider.isVertical = true;
+        slider.color = "green";
+        slider.background = "gray";
+        slider.onValueChangedObservable.add(function (value) {
+            scene.activeCamera.radius = value; // Điều chỉnh khoảng cách camera
+        });
+
+        const advancedTextureSlider = BABYLON.GUI.AdvancedDynamicTexture.CreateFullscreenUI("UI");
+        advancedTextureSlider.addControl(slider);
+
+        
+        // Điều chỉnh vị trí của thanh kéo
+        slider.verticalAlignment = BABYLON.GUI.Control.VERTICAL_ALIGNMENT_BOTTOM;
+        slider.horizontalAlignment = BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_RIGHT;
+        slider.left = -50;
+        slider.top = -50;
+    </script>
+</body>
+</html>
