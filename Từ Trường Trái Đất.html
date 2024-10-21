@@ -222,27 +222,23 @@ function createMagneticFieldLinesWithArrows(scene, radius, initialPosition) {
 // Tạo đường nối giữa trục xoay và trục từ
 const createConnectionLine = function(scene) {
     // Điểm trên trục xoay (Bắc cực địa lý)
-    const geographicNorth = new BABYLON.Vector3(0, 4, 0);
+    const geographicNorth = new BABYLON.Vector3(-0.1, 0, 0);
     
     // Điểm trên trục từ (Bắc cực từ)
     const magneticNorth = new BABYLON.Vector3(
+        0.1,
         0,
-        4 * Math.cos(BABYLON.Tools.ToRadians(11.3)),
-        4 * Math.sin(BABYLON.Tools.ToRadians(11.3))
+        0
     );
 
-
-    
     // Tạo đường nối
     const points = [geographicNorth, magneticNorth];
     const line = BABYLON.MeshBuilder.CreateLines("connectionLine", {points: points}, scene);
     line.color = new BABYLON.Color3(0, 1, 0);  // Màu xanh lá cây
-
-    
+    line.position.y = 4; // Đặt đường nối ở giữa
 
     return line;
 };
-
 
 
 // Trong hàm createScene, sau khi tạo Trái Đất, trục từ và trục xoay:
@@ -270,11 +266,6 @@ connectionLine.parent = earth;
         });
 
         
-
-        // Xử lý sự kiện thay đổi kích thước cửa sổ
-        window.addEventListener("resize", function () {
-            engine.resize();
-        });
 
 
         // Khởi tạo biến và mảng cho chú thích
